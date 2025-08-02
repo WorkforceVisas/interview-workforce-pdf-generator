@@ -1,0 +1,18 @@
+{
+  "_comment": "Set CRON_SECRET as environment variable in Vercel dashboard",
+  "crons": [
+    {
+      "path": "/api/cron/cleanup",
+      "schedule": "0 2 * * *"
+    }
+  ],
+  "functions": {
+    "src/app/api/cron/cleanup/route.ts": {
+      "maxDuration": 60
+    }
+  },
+  "env": {
+    "DATABASE_URL": "@database_url",
+    "CRON_SECRET": "@cron_secret"
+  }
+}

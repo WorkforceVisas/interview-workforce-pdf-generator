@@ -1,0 +1,39 @@
+# Example GitHub Actions workflow for automated cleanup
+# Copy this to .github/workflows/cleanup.yml and configure secrets
+
+name: Cleanup Orphaned Files
+
+on:
+  schedule:
+    # Runs daily at 2 AM UTC
+    - cron: "0 2 * * *"
+
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cleanup orphaned files
+        run: |
+          response=$(curl -s -w "\n%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/cron/cleanup")
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n -1)
+
+          echo "HTTP Status: $http_code"
+          echo "Response: $body"
+
+          if [ "$http_code" -ne "200" ]; then
+            echo "Cleanup failed with status $http_code"
+            exit 1
+          fi
+
+          echo "Cleanup completed successfully"
+
+# Required GitHub Secrets:
+# - CRON_SECRET: Your cron authentication secret
+# - APP_URL: Your application URL (e.g., https://your-app.vercel.app)
