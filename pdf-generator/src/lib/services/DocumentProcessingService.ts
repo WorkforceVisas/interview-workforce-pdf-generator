@@ -13,9 +13,7 @@ import {
 // Import specific extractors
 import { PDFExtractor } from './document-extraction/extractors/pdf-extractor';
 import { DocxExtractor } from './document-extraction/extractors/docx-extractor';
-import { XlsxExtractor } from './document-extraction/extractors/xlsx-extractor';
 import { TextExtractor } from './document-extraction/extractors/text-extractor';
-import { PptxExtractor } from './document-extraction/extractors/pptx-extractor';
 
 export class DocumentProcessingService {
   private documentProcessor: DocumentProcessor;
@@ -34,8 +32,6 @@ export class DocumentProcessingService {
         new TextExtractor(),
         new PDFExtractor(),
         new DocxExtractor(),
-        new XlsxExtractor(),
-        new PptxExtractor(),
       ],
     });
   }

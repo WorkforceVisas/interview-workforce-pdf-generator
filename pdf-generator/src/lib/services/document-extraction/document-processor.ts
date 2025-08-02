@@ -2,8 +2,6 @@ import { BaseExtractor } from './base-extractor';
 import { TextExtractor } from './extractors/text-extractor';
 import { PDFExtractor } from './extractors/pdf-extractor';
 import { DocxExtractor } from './extractors/docx-extractor';
-import { XlsxExtractor } from './extractors/xlsx-extractor';
-import { PptxExtractor } from './extractors/pptx-extractor';
 import {
   ExtractionResult,
   ExtractionOptions,

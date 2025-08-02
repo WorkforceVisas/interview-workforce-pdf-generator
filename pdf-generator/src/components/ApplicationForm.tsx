@@ -411,7 +411,7 @@ export function ApplicationForm({
             type="file"
             id="supportingDocument"
             onChange={handleFileChange}
-            accept=".pdf,.doc,.docx,.txt,.xlsx,.xls"
+            accept=".pdf,.doc,.docx,.txt"
             className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               errors.supportingDocument ? 'border-red-500' : 'border-gray-300'
             }`}
@@ -419,7 +419,7 @@ export function ApplicationForm({
           />
           <p className="mt-1 text-sm text-gray-500">
             Please upload a relevant document such as your resume, cover letter,
-            or portfolio. Accepted formats: PDF, DOC, DOCX, TXT, XLSX, XLS, PPT.
+            or portfolio. Accepted formats: PDF, DOC, DOCX, TXT.
             Maximum file size: 10MB.
           </p>
           {supportingDocument && (

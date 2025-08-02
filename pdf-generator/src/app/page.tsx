@@ -147,7 +147,7 @@ export default function Home() {
               </h3>
               <p className="text-slate-600 leading-relaxed mb-4">
                 Drag & drop support for all major file formats including PDF,
-                DOCX, PPTX, XLSX, CSV, and more.
+                DOCX.
               </p>
               <div className="flex flex-wrap gap-2">
                 <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-lg">
@@ -157,10 +157,7 @@ export default function Home() {
                   DOCX
                 </span>
                 <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-lg">
-                  XLSX
-                </span>
-                <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-lg">
-                  CSV
+                  TXT
                 </span>
               </div>
             </div>
