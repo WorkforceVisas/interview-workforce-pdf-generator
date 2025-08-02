@@ -18,5 +18,67 @@ model User {
   firstName String
   lastName  String
   email     String   @unique
+  phone     String?
+  address   String?
+  city      String?
+  state     String?
+  zipCode   String?
+  country   String   @default("United States")
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relationships
+  applications Application[]
+  
+  @@map("users")
+}
+
+model Application {
+  id             String   @id @default(cuid())
+  userId         String
+  jobDescription String
+  status         String   @default("PROCESSING") // PROCESSING, COMPLETED, FAILED, EXPIRED
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  // Relationships
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents    Document[]
+  generatedPdf GeneratedPdf?
+  
+  @@map("applications")
+}
+
+model Document {
+  id               String   @id @default(cuid())
+  applicationId    String
+  originalName     String
+  filename         String   @unique
+  mimeType         String
+  size             Int
+  path             String
+  extractedText    String?
+  processingStatus String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  uploadedAt       DateTime @default(now())
+  
+  // Relationships
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  
+  @@map("documents")
+}
+
+model GeneratedPdf {
+  id             String    @id @default(cuid())
+  applicationId  String    @unique
+  filename       String    @unique
+  path           String
+  size           Int
+  generatedAt    DateTime  @default(now())
+  downloadCount  Int       @default(0)
+  lastDownloadAt DateTime?
+  
+  // Relationships
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  
+  @@map("generated_pdfs")
 }
