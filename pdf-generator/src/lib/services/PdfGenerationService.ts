@@ -209,49 +209,7 @@ export class PdfGenerationService {
       }
     }
 
-    // Application Metadata
-    yPosition += 20;
-    if (yPosition > 250) {
-      pdf.addPage();
-      yPosition = 30;
-    }
-
-    pdf.setFontSize(16);
-    pdf.setTextColor(31, 41, 55);
-    pdf.text('Application Details', margin, yPosition);
-
-    yPosition += 10;
-    pdf.setFontSize(9);
-    pdf.setTextColor(156, 163, 175);
-
-    const generatedDate = new Date().toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-
-    const metadata = [
-      `Application ID: ${data.application.id}`,
-      `Submitted: ${new Date(data.application.createdAt).toLocaleDateString(
-        'en-US',
-        {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        }
-      )}`,
-      `Status: ${data.application.status}`,
-      `Generated: ${generatedDate}`,
-    ];
-
-    metadata.forEach((info) => {
-      pdf.text(info, margin, yPosition);
-      yPosition += 4;
-    });
+    
 
     // Footer
     const pageCount = pdf.getNumberOfPages();
