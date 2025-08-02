@@ -1,5 +1,5 @@
-import { readFile } from 'fs/promises';
-import { extname } from 'path';
+import { extname, join, isAbsolute, resolve } from 'path';
+import { existsSync } from 'fs';
 import { FileProcessingError } from '@/types';
 
 // Import our production document extraction system
@@ -10,17 +10,20 @@ import {
   DocumentMetadata,
 } from './document-extraction';
 
-// Import specific extractors if we need to customize
+// Import specific extractors
 import { PDFExtractor } from './document-extraction/extractors/pdf-extractor';
 import { DocxExtractor } from './document-extraction/extractors/docx-extractor';
 import { XlsxExtractor } from './document-extraction/extractors/xlsx-extractor';
-import { PptxExtractor } from './document-extraction/extractors/pptx-extractor';
 import { TextExtractor } from './document-extraction/extractors/text-extractor';
 
 export class DocumentProcessingService {
   private documentProcessor: DocumentProcessor;
+  private uploadsDir: string;
 
   constructor() {
+    // Set the uploads directory
+    this.uploadsDir = join(process.cwd(), 'uploads', 'documents');
+
     // Initialize the document processor with production configuration
     this.documentProcessor = new DocumentProcessor({
       enableCache: true,
@@ -31,26 +34,42 @@ export class DocumentProcessingService {
         new PDFExtractor(),
         new DocxExtractor(),
         new XlsxExtractor(),
-        new PptxExtractor(),
       ],
     });
   }
 
   /**
    * Extract text content from uploaded documents
-   * This method maintains backward compatibility with the existing interface
    */
   async extractText(filePath: string): Promise<string> {
     try {
+      console.log(
+        'DocumentProcessingService.extractText called with:',
+        filePath
+      );
+
+      // Resolve the full file path
+      const resolvedPath = await this.resolveFilePath(filePath);
+
+      console.log('Resolved path:', resolvedPath);
+      console.log('File exists:', existsSync(resolvedPath));
+
       // Use our production document processor
-      const result = await this.documentProcessor.process(filePath, {
+      const result = await this.documentProcessor.process(resolvedPath, {
         extractMetadata: true,
         preserveFormatting: false,
         timeout: 30000, // 30 seconds timeout
       });
 
+      console.log('Extraction result:', {
+        success: result.success,
+        textLength: result.text?.length,
+        errors: result.errors,
+        warnings: result.warnings,
+      });
+
       if (result.success) {
-        // Return the extracted text with metadata formatted as before
+        // Return the extracted text with metadata formatted
         return this.formatExtractionResult(result);
       } else {
         // Return a user-friendly message for failed extractions
@@ -60,8 +79,8 @@ export class DocumentProcessingService {
       console.error('Text extraction error:', error);
 
       // Handle specific error types
-      if (error.code === 'FILE_NOT_FOUND') {
-        throw new FileProcessingError('File not found');
+      if (error.code === 'FILE_NOT_FOUND' || error.code === 'ENOENT') {
+        throw new FileProcessingError(`File not found: ${filePath}`);
       } else if (error.code === 'UNSUPPORTED_TYPE') {
         throw new FileProcessingError(
           `Unsupported file type: ${extname(filePath)}`
@@ -75,13 +94,51 @@ export class DocumentProcessingService {
   }
 
   /**
+   * Resolve the file path, trying multiple strategies
+   */
+  private async resolveFilePath(filePath: string): Promise<string> {
+    // If it's already an absolute path and exists, return it
+    if (isAbsolute(filePath) && existsSync(filePath)) {
+      return filePath;
+    }
+
+    // Extract just the filename
+    const filename = filePath.split(/[\\\/]/).pop() || filePath;
+
+    // Try different path resolution strategies
+    const pathsToTry = [
+      // If it's just a filename, try in uploads directory
+      join(this.uploadsDir, filename),
+      // Original path
+      filePath,
+      // If it starts with uploads/, resolve from project root
+      join(process.cwd(), filePath),
+      // Try resolving as-is
+      resolve(filePath),
+    ];
+
+    // Try each path
+    for (const tryPath of pathsToTry) {
+      if (existsSync(tryPath)) {
+        console.log('Found file at:', tryPath);
+        return tryPath;
+      }
+    }
+
+    // If none exist, log what we tried and throw error
+    console.error('File not found. Tried paths:', pathsToTry);
+    throw new FileProcessingError(`File not found: ${filePath}`);
+  }
+
+  /**
    * Extract text with advanced options
    */
   async extractTextAdvanced(
     filePath: string,
     options?: ExtractionOptions
   ): Promise<ExtractionResult> {
-    return await this.documentProcessor.process(filePath, options);
+    const resolvedPath = await this.resolveFilePath(filePath);
+    return await this.documentProcessor.process(resolvedPath, options);
   }
 
   /**
@@ -91,11 +148,14 @@ export class DocumentProcessingService {
     filePaths: string[],
     options?: ExtractionOptions
   ): Promise<Map<string, ExtractionResult>> {
-    return await this.documentProcessor.processMultiple(filePaths, options);
+    const resolvedPaths = await Promise.all(
+      filePaths.map((path) => this.resolveFilePath(path).catch(() => path))
+    );
+    return await this.documentProcessor.processMultiple(resolvedPaths, options);
   }
 
   /**
-   * Format successful extraction result for backward compatibility
+   * Format successful extraction result
    */
   private formatExtractionResult(result: ExtractionResult): string {
     const { text, metadata } = result;
@@ -128,12 +188,6 @@ export class DocumentProcessingService {
         formattedOutput += `\n- Title: ${metadata.title}`;
       }
 
-      if (metadata.confidence && metadata.confidence < 80) {
-        formattedOutput += `\n- Quality: ${this.getQualityLabel(
-          metadata.confidence
-        )}`;
-      }
-
       if (result.warnings && result.warnings.length > 0) {
         formattedOutput += '\n\n⚠️ **Warnings:**';
         result.warnings.forEach((warning) => {
@@ -146,7 +200,7 @@ export class DocumentProcessingService {
   }
 
   /**
-   * Format failed extraction for backward compatibility
+   * Format failed extraction
    */
   private formatFailedExtraction(
     filePath: string,
@@ -182,49 +236,14 @@ export class DocumentProcessingService {
         'This appears to be a scanned document. OCR processing would be required to extract text.\n\n';
     }
 
-    // Add helpful suggestions based on the file type
-    output += '💡 **Suggestions:**\n';
-
-    switch (result.metadata.fileType) {
-      case 'pdf':
-        if (!result.metadata.isScanned && !result.metadata.isEncrypted) {
-          output +=
-            '- Ensure pdf-parse or pdfjs-dist is installed: `npm install pdf-parse`\n';
-        }
-        if (result.metadata.isScanned) {
-          output += '- Enable OCR support for scanned documents\n';
-        }
-        break;
-      case 'docx':
-        output += '- Ensure mammoth is installed: `npm install mammoth`\n';
-        break;
-      case 'xlsx':
-      case 'xls':
-        output += '- Ensure xlsx is installed: `npm install xlsx`\n';
-        break;
-      case 'doc':
-        output += '- Convert to .docx format for better compatibility\n';
-        break;
-    }
-
     output +=
-      '\nThe document has been securely stored and is included in your application package.';
+      'The document has been securely stored and is included in your application package.';
 
     return output;
   }
 
   /**
-   * Get quality label based on confidence score
-   */
-  private getQualityLabel(confidence: number): string {
-    if (confidence >= 90) return 'Excellent';
-    if (confidence >= 70) return 'Good';
-    if (confidence >= 50) return 'Fair';
-    return 'Poor';
-  }
-
-  /**
-   * Get document metadata and basic info (backward compatibility)
+   * Get document metadata and basic info
    */
   async getDocumentInfo(filePath: string): Promise<{
     type: string;
@@ -234,7 +253,8 @@ export class DocumentProcessingService {
     hasText: boolean;
   }> {
     try {
-      const result = await this.documentProcessor.process(filePath, {
+      const resolvedPath = await this.resolveFilePath(filePath);
+      const result = await this.documentProcessor.process(resolvedPath, {
         extractMetadata: true,
         maxPages: 1, // Just check first page for performance
       });
@@ -253,81 +273,6 @@ export class DocumentProcessingService {
   }
 
   /**
-   * Validate that extracted text makes sense (backward compatibility)
-   */
-  validateExtractedText(text: string): {
-    isValid: boolean;
-    issues: string[];
-    confidence: number;
-  } {
-    const issues: string[] = [];
-    let confidence = 100;
-
-    if (!text || text.trim().length === 0) {
-      issues.push('No text content found');
-      confidence = 0;
-    } else {
-      // Check for minimum meaningful content
-      if (text.length < 10) {
-        issues.push('Text content too short');
-        confidence -= 30;
-      }
-
-      // Check for excessive special characters
-      const specialCharRatio =
-        (text.match(/[^\w\s]/g) || []).length / text.length;
-      if (specialCharRatio > 0.3) {
-        issues.push('High ratio of special characters detected');
-        confidence -= 20;
-      }
-
-      // Check for reasonable word structure
-      const words = text.split(/\s+/).filter((word) => word.length > 0);
-      if (words.length > 0) {
-        const avgWordLength =
-          words.reduce((sum, word) => sum + word.length, 0) / words.length;
-
-        if (avgWordLength < 2 || avgWordLength > 15) {
-          issues.push('Unusual word length distribution');
-          confidence -= 15;
-        }
-      }
-
-      // Check for readable English content
-      const commonWords = [
-        'the',
-        'and',
-        'or',
-        'but',
-        'in',
-        'on',
-        'at',
-        'to',
-        'for',
-        'of',
-        'with',
-        'by',
-      ];
-      const foundCommonWords = commonWords.filter((word) =>
-        text.toLowerCase().includes(word)
-      ).length;
-
-      if (foundCommonWords < 3 && words.length > 20) {
-        issues.push('Content may not be in English or may be corrupted');
-        confidence -= 25;
-      }
-    }
-
-    confidence = Math.max(0, confidence);
-
-    return {
-      isValid: confidence > 50,
-      issues,
-      confidence,
-    };
-  }
-
-  /**
    * Clear the document cache
    */
   clearCache(): void {
@@ -339,13 +284,6 @@ export class DocumentProcessingService {
    */
   getCacheStats(): { size: number; hits: number; misses: number } {
     return this.documentProcessor.getCacheStats();
-  }
-
-  /**
-   * Register a custom extractor
-   */
-  registerCustomExtractor(extractor: any): void {
-    this.documentProcessor.registerExtractor(extractor);
   }
 }
 

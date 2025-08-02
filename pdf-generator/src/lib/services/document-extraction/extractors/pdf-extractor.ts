@@ -1,27 +1,18 @@
 import { BaseExtractor } from '../base-extractor';
 import { ExtractionResult, ExtractionOptions } from '../types';
 import { readFile } from 'fs/promises';
+import { existsSync } from 'fs';
+import * as path from 'path';
+
+// Import pdf2json
+let PDFParser: any;
+try {
+  PDFParser = require('pdf2json');
+} catch (error) {
+  console.warn('pdf2json not available, will try dynamic import when needed');
+}
 
 export class PDFExtractor extends BaseExtractor {
-  private pdfjs: any = null;
-
-  private async initializePdfJs() {
-    if (!this.pdfjs) {
-      this.pdfjs = await import('pdfjs-dist');
-
-      // Configure worker based on environment
-      if (typeof window !== 'undefined') {
-        // Client-side: use your local worker via rewrite rule
-        this.pdfjs.GlobalWorkerOptions.workerSrc =
-          '/pdf-worker/pdf.worker.min.js';
-      } else {
-        // Server-side: disable worker completely
-        this.pdfjs.GlobalWorkerOptions.workerSrc = false;
-      }
-    }
-    return this.pdfjs;
-  }
-
   canHandle(filePath: string, mimeType?: string): boolean {
     return (
       filePath.toLowerCase().endsWith('.pdf') || mimeType === 'application/pdf'
@@ -36,96 +27,99 @@ export class PDFExtractor extends BaseExtractor {
     this.warnings = [];
     this.errors = [];
 
+    console.log('PDFExtractor.extract called with:', filePath);
+    console.log('File exists before extraction:', existsSync(filePath));
+
     try {
-      const pdfjs = await this.initializePdfJs();
-      const buffer = await readFile(filePath);
-      const uint8Array = new Uint8Array(buffer);
-
-      // Configure PDF loading for server environment
-      const loadingTask = pdfjs.getDocument({
-        data: uint8Array,
-        password: options?.password,
-        // Always disable worker and problematic features for stability
-        useWorker: false,
-        useSystemFonts: false,
-        disableFontFace: true,
-        standardFontDataUrl: null,
-        cMapUrl: null,
-        cMapPacked: false,
-      });
-
-      const pdf = await loadingTask.promise;
-      const metadata = await this.extractMetadata(pdf);
-
-      // Extract text from pages
-      const maxPages = options?.maxPages || pdf.numPages;
-      const pagesToExtract = Math.min(pdf.numPages, maxPages);
-      const textParts: string[] = [];
-      let hasScannedPages = false;
-
-      for (let i = 1; i <= pagesToExtract; i++) {
+      // Ensure pdf2json is available
+      if (!PDFParser) {
         try {
-          const page = await pdf.getPage(i);
-          const textContent = await page.getTextContent({
-            normalizeWhitespace: true,
-            disableCombineTextItems: false,
-          });
-
-          if (textContent.items.length === 0) {
-            hasScannedPages = true;
-            if (options?.ocrEnabled) {
-              this.warnings.push(
-                `Page ${i} appears to be scanned - OCR required`
-              );
-            }
-          }
-
-          const pageText = textContent.items
-            .map((item: any) => item.str)
-            .join(' ');
-
-          if (pageText.trim()) {
-            textParts.push(pageText);
-          }
-        } catch (pageError) {
-          this.warnings.push(
-            `Failed to extract page ${i}: ${pageError.message}`
-          );
+          PDFParser = require('pdf2json');
+        } catch (e) {
+          const module = await import('pdf2json');
+          PDFParser = module.default || module;
         }
       }
 
-      if (pagesToExtract < pdf.numPages) {
-        this.warnings.push(
-          `Extracted ${pagesToExtract} of ${pdf.numPages} pages (limit reached)`
+      if (!PDFParser) {
+        throw new Error(
+          'Could not load pdf2json module. Please ensure it is installed: npm install pdf2json'
         );
       }
 
-      const text = this.cleanText(textParts.join('\n\n'));
-      const words = text.split(/\s+/).filter((w) => w.length > 0);
-      const languageHints = this.detectLanguage(text);
+      // Extract text using pdf2json
+      const text = await this.extractWithPdf2json(filePath, options);
 
-      const basicMetadata = await this.getBasicMetadata(filePath);
+      // Clean and process the text
+      const cleanedText = this.cleanText(text);
+      const words = cleanedText.split(/\s+/).filter((w) => w.length > 0);
+      const languageHints = this.detectLanguage(cleanedText);
 
-      return this.buildResult(text, {
-        ...(basicMetadata as any),
-        ...metadata,
-        fileType: 'pdf',
-        mimeType: 'application/pdf',
-        pageCount: pdf.numPages,
-        wordCount: words.length,
-        characterCount: text.length,
-        languageHints,
-        isScanned: hasScannedPages,
-        extractionMethod: hasScannedPages ? 'mixed' : 'text-layer',
-      });
-    } catch (error) {
-      if (error.message?.includes('password')) {
-        this.errors.push('PDF is password protected');
-      } else {
-        this.errors.push(`PDF extraction failed: ${error.message}`);
+      // Get basic file metadata
+      let basicMetadata = {};
+      try {
+        basicMetadata = await this.getBasicMetadata(filePath);
+      } catch (metadataError) {
+        console.warn('Failed to get basic metadata:', metadataError);
+        this.warnings.push('Could not retrieve file metadata');
       }
 
-      const basicMetadata = await this.getBasicMetadata(filePath);
+      // Build successful result
+      const result = this.buildResult(cleanedText, {
+        ...(basicMetadata as any),
+        fileType: 'pdf',
+        mimeType: 'application/pdf',
+        wordCount: words.length,
+        characterCount: cleanedText.length,
+        languageHints,
+        isScanned: cleanedText.trim().length === 0,
+        extractionMethod: cleanedText.trim().length > 0 ? 'pdf2json' : 'none',
+      });
+
+      console.log(
+        'PDF extraction successful, text length:',
+        cleanedText.length
+      );
+      return result;
+    } catch (error) {
+      console.error('PDF extraction error:', error);
+
+      // Build error result
+      let errorMessage = 'PDF extraction failed';
+      let errorCode = 'EXTRACTION_FAILED';
+
+      if (error.code === 'ENOENT' || error.message?.includes('ENOENT')) {
+        errorMessage = `PDF file not found: ${filePath}`;
+        errorCode = 'FILE_NOT_FOUND';
+      } else if (error.message?.includes('Could not load pdf2json')) {
+        errorMessage = error.message;
+        errorCode = 'MODULE_NOT_FOUND';
+      } else if (
+        error.message?.includes('password') ||
+        error.message?.includes('encrypted')
+      ) {
+        errorMessage = 'PDF is password protected or encrypted';
+        errorCode = 'PASSWORD_PROTECTED';
+      } else if (
+        error.message?.includes('Invalid') ||
+        error.message?.includes('corrupt')
+      ) {
+        errorMessage = 'PDF file appears to be corrupted';
+        errorCode = 'CORRUPTED_FILE';
+      } else {
+        errorMessage = `PDF extraction failed: ${error.message}`;
+      }
+
+      this.errors.push(errorMessage);
+
+      // Try to get basic metadata even on error
+      let basicMetadata = {};
+      try {
+        basicMetadata = await this.getBasicMetadata(filePath);
+      } catch (metadataError) {
+        this.warnings.push('Could not retrieve file metadata');
+      }
+
       return this.buildResult(
         '',
         {
@@ -134,31 +128,99 @@ export class PDFExtractor extends BaseExtractor {
           mimeType: 'application/pdf',
           wordCount: 0,
           characterCount: 0,
-          isEncrypted: error.message?.includes('password'),
+          isEncrypted:
+            error.message?.includes('password') ||
+            error.message?.includes('encrypted'),
+          error: errorMessage,
+          errorCode: errorCode,
         },
         false
       );
     }
   }
 
-  private async extractMetadata(pdf: any): Promise<Partial<DocumentMetadata>> {
-    try {
-      const metadata = await pdf.getMetadata();
-      const info = metadata.info || {};
+  private async extractWithPdf2json(
+    filePath: string,
+    options?: ExtractionOptions
+  ): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const pdfParser = new PDFParser(this, 1);
 
-      return {
-        title: info.Title,
-        author: info.Author,
-        subject: info.Subject,
-        producer: info.Producer,
-        createdDate: info.CreationDate
-          ? new Date(info.CreationDate)
-          : undefined,
-        modifiedDate: info.ModDate ? new Date(info.ModDate) : undefined,
-      };
-    } catch (error) {
-      this.warnings.push('Failed to extract PDF metadata');
-      return {};
-    }
+      // Set up event handlers
+      pdfParser.on('pdfParser_dataError', (errData: any) => {
+        console.error('PDF parsing error:', errData.parserError);
+        reject(new Error(errData.parserError || 'Failed to parse PDF'));
+      });
+
+      pdfParser.on('pdfParser_dataReady', (pdfData: any) => {
+        try {
+          console.log('PDF parsed successfully');
+
+          // Extract text from the parsed data
+          let extractedText = '';
+
+          // Method 1: Use getRawTextContent() if available
+          if (typeof pdfParser.getRawTextContent === 'function') {
+            extractedText = pdfParser.getRawTextContent();
+          } else {
+            // Method 2: Extract text from pages manually
+            if (pdfData.Pages) {
+              const maxPages = options?.maxPages || pdfData.Pages.length;
+              const pagesToProcess = Math.min(pdfData.Pages.length, maxPages);
+
+              for (let i = 0; i < pagesToProcess; i++) {
+                const page = pdfData.Pages[i];
+                if (page.Texts) {
+                  for (const textItem of page.Texts) {
+                    if (textItem.R) {
+                      for (const textRun of textItem.R) {
+                        if (textRun.T) {
+                          // Decode URI component to get actual text
+                          const decodedText = decodeURIComponent(textRun.T);
+                          extractedText += decodedText + ' ';
+                        }
+                      }
+                    }
+                  }
+                  extractedText += '\n\n'; // Add paragraph break between pages
+                }
+              }
+
+              if (pagesToProcess < pdfData.Pages.length) {
+                this.warnings.push(
+                  `Extracted ${pagesToProcess} of ${pdfData.Pages.length} pages (limit reached)`
+                );
+              }
+            }
+          }
+
+          // Extract metadata if available
+          if (pdfData.Meta) {
+            console.log('PDF Metadata:', {
+              title: pdfData.Meta.Title,
+              author: pdfData.Meta.Author,
+              subject: pdfData.Meta.Subject,
+              creator: pdfData.Meta.Creator,
+            });
+          }
+
+          if (!extractedText || extractedText.trim().length === 0) {
+            this.warnings.push(
+              'No text content found in PDF - might be scanned or image-based'
+            );
+          }
+
+          resolve(extractedText);
+        } catch (error) {
+          reject(error);
+        }
+      });
+
+      // Load the PDF file
+      console.log('Loading PDF file:', filePath);
+      pdfParser.loadPDF(filePath);
+    });
   }
 }
+
+export default PDFExtractor;

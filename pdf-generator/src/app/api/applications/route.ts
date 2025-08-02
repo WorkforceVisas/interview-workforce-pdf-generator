@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { existsSync } from 'fs';
+import { join } from 'path';
 
 // Wrap imports in try-catch to catch import errors
 let ApplicationService: any;
@@ -161,7 +163,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             throw new Error(uploadResult.error || 'File upload failed');
           }
 
-          console.log('File uploaded successfully:', uploadResult.filename);
+          // Debug logging
+          console.log('File upload result:', {
+            filename: uploadResult.filename,
+            path: uploadResult.path,
+            exists: existsSync(uploadResult.path),
+            cwd: process.cwd(),
+            uploadsDir: join(process.cwd(), 'uploads', 'documents'),
+          });
 
           // Create document record
           const document = await applicationService.createDocument(
@@ -179,9 +188,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
           // Extract text from document (async)
           try {
-            extractedText = await documentProcessingService.extractText(
-              uploadResult.path
+            // IMPORTANT: Pass just the filename, not the full path
+            console.log(
+              'Calling extractText with filename:',
+              uploadResult.filename
             );
+
+            extractedText = await documentProcessingService.extractText(
+              uploadResult.filename // Pass just the filename
+            );
+
+            // If the above doesn't work, try with the full path
+            if (!extractedText || extractedText.includes('File not found')) {
+              console.log('Retrying with full path:', uploadResult.path);
+              extractedText = await documentProcessingService.extractText(
+                uploadResult.path
+              );
+            }
+
             await applicationService.updateDocumentText(
               document.id,
               extractedText
@@ -192,6 +216,32 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             );
           } catch (textExtractionError) {
             console.warn('Text extraction failed:', textExtractionError);
+
+            // Log more details about the error
+            console.error('Extraction error details:', {
+              message: textExtractionError.message,
+              code: textExtractionError.code,
+              stack: textExtractionError.stack,
+              filename: uploadResult.filename,
+              fullPath: uploadResult.path,
+              fileExists: existsSync(uploadResult.path),
+              alternativePath: join(
+                process.cwd(),
+                'uploads',
+                'documents',
+                uploadResult.filename
+              ),
+              alternativeExists: existsSync(
+                join(
+                  process.cwd(),
+                  'uploads',
+                  'documents',
+                  uploadResult.filename
+                )
+              ),
+            });
+
+            // Provide a fallback message
             extractedText = `Document uploaded: ${supportingDocument.name}`;
           }
         } catch (fileError) {

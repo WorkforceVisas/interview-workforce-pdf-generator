@@ -11,6 +11,8 @@ import {
 } from './types';
 import { createHash } from 'crypto';
 import { readFile, stat } from 'fs/promises';
+import { existsSync } from 'fs';
+import { join, resolve, isAbsolute } from 'path';
 import * as mime from 'mime-types';
 import { LRUCache } from 'lru-cache';
 
@@ -46,18 +48,26 @@ export class DocumentProcessor {
     filePath: string,
     options?: ExtractionOptions
   ): Promise<ExtractionResult> {
+    console.log('DocumentProcessor.process called with:', filePath);
+
+    // Resolve the file path first
+    const resolvedPath = await this.resolveFilePath(filePath);
+    console.log('Resolved path:', resolvedPath);
+
     // Validate file exists
     try {
-      await stat(filePath);
+      await stat(resolvedPath);
     } catch (error) {
+      console.error('File not found at resolved path:', resolvedPath);
       throw new DocumentExtractionError('File not found', 'FILE_NOT_FOUND', {
-        filePath,
+        filePath: resolvedPath,
+        originalPath: filePath,
       });
     }
 
     // Check cache
     if (this.config.enableCache) {
-      const cacheKey = await this.getCacheKey(filePath, options);
+      const cacheKey = await this.getCacheKey(resolvedPath, options);
       const cached = this.cache.get(cacheKey);
       if (cached) {
         return { ...cached, metadata: { ...cached.metadata, cached: true } };
@@ -65,18 +75,18 @@ export class DocumentProcessor {
     }
 
     // Detect MIME type
-    const mimeType = mime.lookup(filePath) || 'application/octet-stream';
+    const mimeType = mime.lookup(resolvedPath) || 'application/octet-stream';
 
     // Find appropriate extractor
     const extractor = this.extractors.find((e) =>
-      e.canHandle(filePath, mimeType)
+      e.canHandle(resolvedPath, mimeType)
     );
 
     if (!extractor) {
       throw new DocumentExtractionError(
         'Unsupported file type',
         'UNSUPPORTED_TYPE',
-        { filePath, mimeType }
+        { filePath: resolvedPath, mimeType }
       );
     }
 
@@ -84,20 +94,62 @@ export class DocumentProcessor {
     let result: ExtractionResult;
     if (options?.timeout) {
       result = await this.withTimeout(
-        extractor.extract(filePath, options),
+        extractor.extract(resolvedPath, options),
         options.timeout
       );
     } else {
-      result = await extractor.extract(filePath, options);
+      result = await extractor.extract(resolvedPath, options);
     }
 
     // Cache result
     if (this.config.enableCache && result.success) {
-      const cacheKey = await this.getCacheKey(filePath, options);
+      const cacheKey = await this.getCacheKey(resolvedPath, options);
       this.cache.set(cacheKey, result);
     }
 
     return result;
+  }
+
+  private async resolveFilePath(filePath: string): Promise<string> {
+    // If it's already an absolute path and exists, return it
+    if (isAbsolute(filePath) && existsSync(filePath)) {
+      return filePath;
+    }
+
+    // Define the uploads directory
+    const uploadsDir = join(process.cwd(), 'uploads', 'documents');
+
+    // Extract just the filename from the path
+    const filename = filePath.split(/[\\\/]/).pop() || filePath;
+
+    // Try different path resolution strategies
+    const pathsToTry = [
+      // If it's just a filename, try in uploads directory
+      join(uploadsDir, filename),
+      // Original path
+      filePath,
+      // If it starts with uploads/, resolve from project root
+      join(process.cwd(), filePath),
+      // Try resolving as-is
+      resolve(filePath),
+      // Try with normalized separators
+      join(process.cwd(), filePath.replace(/\\/g, '/')),
+    ].filter(Boolean) as string[];
+
+    // Try each path
+    for (const tryPath of pathsToTry) {
+      if (existsSync(tryPath)) {
+        console.log('Found file at:', tryPath);
+        return tryPath;
+      }
+    }
+
+    // If none exist, log what we tried and throw error
+    console.error('File not found. Tried paths:', pathsToTry);
+    throw new DocumentExtractionError('File not found', 'FILE_NOT_FOUND', {
+      filePath,
+      triedPaths: pathsToTry,
+    });
   }
 
   async processMultiple(
@@ -185,5 +237,3 @@ export class DocumentProcessor {
     );
   }
 }
-
-// src/serv
