@@ -2,13 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { existsSync } from 'fs';
 import { join } from 'path';
 
-// Wrap imports in try-catch to catch import errors
-let ApplicationService: any;
-let FileService: any;
-let PdfGenerationService: any;
-let DocumentProcessingService: any;
-let validateApplicationForm: any;
-let types: any;
+import type { ApplicationService as ApplicationServiceType } from '@/lib/services/ApplicationService';
+import type { FileService as FileServiceType } from '@/lib/services/FileService';
+import type { PdfGenerationService as PdfGenerationServiceType } from '@/lib/services/PdfGenerationService';
+import type { DocumentProcessingService as DocumentProcessingServiceType } from '@/lib/services/DocumentProcessingService';
+import type { validateApplicationForm as ValidateApplicationFormType } from '@/lib/validation';
+import type * as Types from '@/types';
+
+let ApplicationService: typeof ApplicationServiceType;
+let FileService: typeof FileServiceType;
+let PdfGenerationService: typeof PdfGenerationServiceType;
+let DocumentProcessingService: typeof DocumentProcessingServiceType;
+let validateApplicationForm: typeof ValidateApplicationFormType;
+let types: typeof Types;
 
 try {
   ({ ApplicationService } = await import('@/lib/services/ApplicationService'));
@@ -218,29 +224,35 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             console.warn('Text extraction failed:', textExtractionError);
 
             // Log more details about the error
-            console.error('Extraction error details:', {
-              message: textExtractionError.message,
-              code: textExtractionError.code,
-              stack: textExtractionError.stack,
-              filename: uploadResult.filename,
-              fullPath: uploadResult.path,
-              fileExists: existsSync(uploadResult.path),
-              alternativePath: join(
-                process.cwd(),
-                'uploads',
-                'documents',
-                uploadResult.filename
-              ),
-              alternativeExists: existsSync(
-                join(
+            if (process.env.NODE_ENV === 'development') {
+              console.error('Text extraction error details:', {
+                message: textExtractionError.message,
+                code: textExtractionError.code,
+                stack: textExtractionError.stack,
+                filename: uploadResult.filename,
+                fullPath: uploadResult.path,
+                fileExists: existsSync(uploadResult.path),
+                alternativePath: join(
                   process.cwd(),
                   'uploads',
                   'documents',
                   uploadResult.filename
-                )
-              ),
-            });
-
+                ),
+                alternativeExists: existsSync(
+                  join(
+                    process.cwd(),
+                    'uploads',
+                    'documents',
+                    uploadResult.filename
+                  )
+                ),
+              });
+            } else {
+              console.error(
+                'Text extraction failed:',
+                textExtractionError.message
+              );
+            }
             // Provide a fallback message
             extractedText = `Document uploaded: ${supportingDocument.name}`;
           }

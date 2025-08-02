@@ -21,7 +21,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "iconv-lite": "^0.6.3",
-    "jspdf": "^2.5.1",
+    "jspdf": "^3.0.1",
     "lru-cache": "^11.1.0",
     "lucide-react": "^0.536.0",
     "mammoth": "^1.10.0",

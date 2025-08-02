@@ -1,17 +1,33 @@
 declare module 'pdf2json' {
   export default class PDFParser {
-    constructor(context?: any, needRawText?: number);
+    constructor(context?: object | null, needRawText?: boolean | number);
 
-    on(event: 'pdfParser_dataError', callback: (errData: any) => void): void;
-    on(event: 'pdfParser_dataReady', callback: (pdfData: any) => void): void;
+    on(event: 'pdfParser_dataError', callback: (errData: Error) => void): void;
+    on(
+      event: 'pdfParser_dataReady',
+      callback: (pdfData: PDFData) => void
+    ): void;
 
     loadPDF(pdfFilePath: string): void;
     parseBuffer(buffer: Buffer): void;
     getRawTextContent(): string;
-    getAllFieldsTypes(): any;
+    getAllFieldsTypes(): string[];
 
     // PDF data structure
-    PDFJS: any;
-    data: any;
+    PDFJS: object;
+    data: PDFData | null;
+  }
+  interface PDFData {
+    Pages: Array<{
+      PageNumber: number;
+      Texts: Array<{
+        R: Array<{ T: string }>;
+      }>;
+    }>;
+    Metadata?: {
+      fileSize?: number;
+      wordCount?: number;
+      characterCount?: number;
+    };
   }
 }

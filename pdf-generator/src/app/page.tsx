@@ -80,7 +80,8 @@ export default function Home() {
             </div>
             <h3 className="font-semibold text-sm">File Upload</h3>
             <p className="text-xs text-muted-foreground">
-              Support for PDF, DOC, DOCX, TXT
+              Support for PDF, DOCX, PPTX, XLSX (and other Excel types), CSV,
+              JSON, XML, HTML, and plain-text files
             </p>
           </div>
 

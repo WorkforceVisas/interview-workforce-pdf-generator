@@ -92,6 +92,7 @@ export interface GeneratedPdfEntity {
 
 // Enums
 export enum ApplicationStatus {
+  PENDING = 'PENDING',
   PROCESSING = 'PROCESSING',
   COMPLETED = 'COMPLETED',
   FAILED = 'FAILED',
@@ -150,4 +151,3 @@ export class PdfGenerationError extends Error {
     this.name = 'PdfGenerationError';
   }
 }
-

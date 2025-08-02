@@ -16,6 +16,12 @@ export class ApplicationService {
    */
   async createUser(personalDetails: PersonalDetails): Promise<UserEntity> {
     try {
+      const existingUser = await prisma.user.findUnique({
+        where: { email: personalDetails.email.toLowerCase().trim() },
+      });
+      if (existingUser) {
+        throw new Error('User with this email already exists');
+      }
       const user = await prisma.user.create({
         data: {
           firstName: personalDetails.firstName.trim(),
@@ -265,17 +271,23 @@ export class ApplicationService {
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
       // Get expired applications with their file paths
-      const expiredApplications = await prisma.application.findMany({
+      const result = await prisma.application.updateMany({
         where: {
           createdAt: { lt: thirtyDaysAgo },
           status: { not: ApplicationStatus.EXPIRED },
+        },
+        data: { status: ApplicationStatus.EXPIRED },
+      });
+      const expiredApplications = await prisma.application.findMany({
+        where: {
+          createdAt: { lt: thirtyDaysAgo },
+          status: ApplicationStatus.EXPIRED,
         },
         include: {
           documents: true,
           generatedPdf: true,
         },
       });
-
       // Delete files from filesystem
       const fs = await import('fs/promises');
       for (const app of expiredApplications) {
@@ -300,16 +312,6 @@ export class ApplicationService {
           }
         }
       }
-
-      // Update application status to EXPIRED
-      const result = await prisma.application.updateMany({
-        where: {
-          createdAt: { lt: thirtyDaysAgo },
-          status: { not: ApplicationStatus.EXPIRED },
-        },
-        data: { status: ApplicationStatus.EXPIRED },
-      });
-
       return result.count;
     } catch (error) {
       console.error('Error cleaning up expired applications:', error);

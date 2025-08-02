@@ -411,14 +411,14 @@ export function ApplicationForm({
             type="file"
             id="supportingDocument"
             onChange={handleFileChange}
-            accept=".pdf,.doc,.docx,.txt"
+            accept=".pdf,.doc,.docx,.txt,.xlsx,.xls"
             className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               errors.supportingDocument ? 'border-red-500' : 'border-gray-300'
             }`}
             disabled={disabled || isSubmitting}
           />
           <p className="mt-1 text-sm text-gray-500">
-            Accepted formats: PDF, DOC, DOCX, TXT. Maximum file size: 10MB.
+            Accepted formats: PDF, DOC, DOCX, TXT, XLSX, XLS. Maximum file size: 10MB.
           </p>
           {supportingDocument && (
             <p className="mt-1 text-sm text-green-600">

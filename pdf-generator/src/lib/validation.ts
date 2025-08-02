@@ -48,7 +48,7 @@ export function validatePersonalDetails(
     errors.firstName = 'First name must be at least 2 characters';
   } else if (details.firstName.trim().length > 50) {
     errors.firstName = 'First name must be less than 50 characters';
-  } else if (!/^[a-zA-Z\s\-']+$/.test(details.firstName.trim())) {
+  } else if (!/^[\p{L}\s\-']+$/u.test(details.firstName.trim())) {
     errors.firstName = 'First name contains invalid characters';
   }
 
@@ -59,7 +59,7 @@ export function validatePersonalDetails(
     errors.lastName = 'Last name must be at least 2 characters';
   } else if (details.lastName.trim().length > 50) {
     errors.lastName = 'Last name must be less than 50 characters';
-  } else if (!/^[a-zA-Z\s\-']+$/.test(details.lastName.trim())) {
+  } else if (!/^[\p{L}\s\-']+$/u.test(details.lastName.trim())) {
     errors.lastName = 'Last name contains invalid characters';
   }
 
@@ -90,7 +90,7 @@ export function validatePersonalDetails(
   if (details.city && details.city.trim()) {
     if (details.city.trim().length > 100) {
       errors.city = 'City name must be less than 100 characters';
-    } else if (!/^[a-zA-Z\s\-'\.]+$/.test(details.city.trim())) {
+    } else if (!/^[\p{L}\s\-'\.]+$/u.test(details.city.trim())) {
       errors.city = 'City name contains invalid characters';
     }
   }
@@ -181,6 +181,8 @@ export function validateSupportingDocument(
     'text/plain',
     'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   ];
 
   if (!allowedTypes.includes(file.type)) {
@@ -302,7 +304,7 @@ export function sanitizeText(text: string): string {
       // Remove excessive whitespace
       .replace(/\s+/g, ' ')
       // Remove control characters
-      .replace(/[\x00-\x1F\x7F]/g, '')
+      .replace(/[\u0000-\u001F\u007F]/g, '')
       // Trim whitespace
       .trim()
   );
