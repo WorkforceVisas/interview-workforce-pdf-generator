@@ -418,7 +418,9 @@ export function ApplicationForm({
             disabled={disabled || isSubmitting}
           />
           <p className="mt-1 text-sm text-gray-500">
-            Accepted formats: PDF, DOC, DOCX, TXT, XLSX, XLS. Maximum file size: 10MB.
+            Please upload a relevant document such as your resume, cover letter,
+            or portfolio. Accepted formats: PDF, DOC, DOCX, TXT, XLSX, XLS, PPT.
+            Maximum file size: 10MB.
           </p>
           {supportingDocument && (
             <p className="mt-1 text-sm text-green-600">
@@ -439,7 +441,7 @@ export function ApplicationForm({
         <button
           type="submit"
           disabled={disabled || isSubmitting}
-          className="w-full bg-blue-600 text-white py-3 px-4 rounded-md font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="w-full text-white py-3 px-4 rounded-md font-medium bg-gradient-to-r from-blue-600 to-indigo-600 text-white gap-3 hover:from-blue-700 hover:to-indigo-700 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {isSubmitting ? 'Processing Application...' : 'Submit Application'}
         </button>

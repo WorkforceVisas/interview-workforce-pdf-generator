@@ -81,7 +81,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Parse and validate data
-    let personalDetails: any;
+    let personalDetails: Types.PersonalDetails;
     try {
       personalDetails = JSON.parse(personalDetailsJson);
       console.log('Personal details parsed successfully');

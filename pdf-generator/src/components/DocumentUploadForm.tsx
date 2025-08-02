@@ -42,8 +42,8 @@ export function DocumentUploadForm({
         </label>
         <p className="text-sm text-gray-600 mb-4">
           Please upload a relevant document such as your resume, cover letter,
-          or portfolio. Accepted formats: PDF, DOC, DOCX, TXT. Maximum size:
-          10MB.
+          or portfolio. Accepted formats: PDF, DOC, DOCX, TXT, XLSX, XLS, PPT.
+          Maximum file size: 10MB.
         </p>
 
         {!file ? (
