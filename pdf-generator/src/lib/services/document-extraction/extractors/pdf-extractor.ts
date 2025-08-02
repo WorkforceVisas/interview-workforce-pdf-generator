@@ -1,15 +1,27 @@
 import { BaseExtractor } from '../base-extractor';
 import { ExtractionResult, ExtractionOptions } from '../types';
 import { readFile } from 'fs/promises';
-import * as pdfjsLib from 'pdfjs-dist';
-import { createCanvas } from 'canvas';
-import DOMMatrix from 'dommatrix';
 
-if (typeof window !== 'undefined') {
-  // Only initialize the worker path on the client-side
-  pdfjs.GlobalWorkerOptions.workerSrc = '/pdf-worker/pdf.worker.min.js';
-}
 export class PDFExtractor extends BaseExtractor {
+  private pdfjs: any = null;
+
+  private async initializePdfJs() {
+    if (!this.pdfjs) {
+      this.pdfjs = await import('pdfjs-dist');
+
+      // Configure worker based on environment
+      if (typeof window !== 'undefined') {
+        // Client-side: use your local worker via rewrite rule
+        this.pdfjs.GlobalWorkerOptions.workerSrc =
+          '/pdf-worker/pdf.worker.min.js';
+      } else {
+        // Server-side: disable worker completely
+        this.pdfjs.GlobalWorkerOptions.workerSrc = false;
+      }
+    }
+    return this.pdfjs;
+  }
+
   canHandle(filePath: string, mimeType?: string): boolean {
     return (
       filePath.toLowerCase().endsWith('.pdf') || mimeType === 'application/pdf'
@@ -25,17 +37,23 @@ export class PDFExtractor extends BaseExtractor {
     this.errors = [];
 
     try {
+      const pdfjs = await this.initializePdfJs();
       const buffer = await readFile(filePath);
       const uint8Array = new Uint8Array(buffer);
 
-      // Load PDF document
-      const loadingTask = pdfjsLib.getDocument({
+      // Configure PDF loading for server environment
+      const loadingTask = pdfjs.getDocument({
         data: uint8Array,
         password: options?.password,
-        useSystemFonts: true,
+        // Always disable worker and problematic features for stability
+        useWorker: false,
+        useSystemFonts: false,
+        disableFontFace: true,
+        standardFontDataUrl: null,
+        cMapUrl: null,
+        cMapPacked: false,
       });
 
-      const matrix = new DOMMatrix();
       const pdf = await loadingTask.promise;
       const metadata = await this.extractMetadata(pdf);
 
@@ -48,12 +66,14 @@ export class PDFExtractor extends BaseExtractor {
       for (let i = 1; i <= pagesToExtract; i++) {
         try {
           const page = await pdf.getPage(i);
-          const textContent = await page.getTextContent();
+          const textContent = await page.getTextContent({
+            normalizeWhitespace: true,
+            disableCombineTextItems: false,
+          });
 
           if (textContent.items.length === 0) {
             hasScannedPages = true;
             if (options?.ocrEnabled) {
-              // OCR would go here - for now we'll flag it
               this.warnings.push(
                 `Page ${i} appears to be scanned - OCR required`
               );
@@ -64,7 +84,7 @@ export class PDFExtractor extends BaseExtractor {
             .map((item: any) => item.str)
             .join(' ');
 
-          if (pageText) {
+          if (pageText.trim()) {
             textParts.push(pageText);
           }
         } catch (pageError) {
