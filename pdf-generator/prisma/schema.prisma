@@ -18,5 +18,80 @@ model User {
   firstName String
   lastName  String
   email     String   @unique
+  phone     String?
+  address   String?
+  city      String?
+  state     String?
+  zipCode   String?
+  country   String   @default("United States")
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relationships
+  applications Application[]
+  
+  @@map("users")
+}
+
+enum ApplicationStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  EXPIRED
+}
+model Application {
+  id             String   @id @default(cuid())
+  userId         String
+  jobDescription String
+  status         ApplicationStatus @default(PROCESSING)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  // Relationships
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents    Document[]
+  generatedPdf GeneratedPdf?
+  
+  @@map("applications")
+}
+
+enum DocumentProcessingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+model Document {
+  id               String   @id @default(cuid())
+  applicationId    String
+  originalName     String
+  filename         String
+  mimeType         String
+  size             Int
+  path             String
+  extractedText    String?
+  processingStatus DocumentProcessingStatus @default(PENDING)
+  uploadedAt       DateTime @default(now())
+  
+  // Relationships
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  
+  @@map("documents")
+}
+
+model GeneratedPdf {
+  id             String    @id @default(cuid())
+  applicationId  String    @unique
+  filename       String    @unique
+  path           String
+  size           Int
+  generatedAt    DateTime  @default(now())
+  downloadCount  Int       @default(0)
+  lastDownloadAt DateTime?
+  
+  // Relationships
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  
+  @@map("generated_pdfs")
 }
