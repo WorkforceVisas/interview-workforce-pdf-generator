@@ -1,97 +1,115 @@
-# Workforce Visas - Technical Interview
+# PDF Generator - From Form to PDF
 
-Welcome to the Workforce Visas technical interview! This is a comprehensive assessment designed to evaluate your technical skills, problem-solving abilities, and system design thinking.
+A Next.js application that takes user-submitted data + an uploaded file and turns it into a single PDF.
 
-## Interview Overview
+## Quick Start
 
-This interview consists of **two parts** and we are paying for **two hours of your time** to complete both components:
+```bash
+# Install dependencies
+npm install
 
-1. **System Design Challenge**
-2. **Coding Challenge**
+# Set up database
+cp .env.example .env
+npx prisma db push
 
-## Part 1: System Design Challenge - details in the **system-design.md**
+# Run development server
+npm run dev
+```
 
-### Overview
+Then visit `http://localhost:3000`
 
-You'll be working on an open-ended system design problem where you need to sketch a complete, end-to-end solution that turns **incoming user data** (structured fields and uploaded files) into a **generated PDF** that blends that data with AI-generated prose.
+## Features
 
-### What You'll Do
+- **Form Input**: Personal details + job description text
+- **File Upload**: PDF file attachment support
+- **PDF Generation**: Professional formatted output combining user data and uploaded content
+- **Database**: SQLite with Prisma for data persistence
+- **Local Storage**: Files stored in `./uploads` directory
 
-- Design a complete system architecture
-- Consider AI integration and retrieval strategies
-- Plan PDF generation approaches
-- Think about scaling, security, and compliance
-- Document your design decisions and trade-offs
+## User Flow
 
-### Deliverable
+1. **Landing Page** – Professional homepage with clear call-to-action
+2. **Application Form** – Clean, intuitive form for personal details and job description
+3. **File Upload** – Secure upload for resume/CV documents (PDF format)
+4. **PDF Generation** – Instant generation of professionally formatted application PDF
+5. **Download** – Immediate download of the generated PDF document
 
-- A single Markdown document in the `/system-design` folder
-- Optional diagrams or code snippets
-- Focus on depth over length
+## Architecture
 
-## Part 2: Coding Challenge - "From Form to PDF" - details in the **coding-challenge.md**
+The application follows a modern, scalable architecture:
 
-### Overview
+- **Frontend**: Next.js 14 with TypeScript and Tailwind CSS
+- **Backend**: Next.js API routes with proper error handling
+- **Database**: SQLite with Prisma ORM for type-safe database operations
+- **File Storage**: Local file system with organized directory structure
+- **PDF Generation**: React-PDF for high-quality document generation
 
-You'll build a tiny Next.js feature that takes **user-submitted data + an uploaded file** and turns it into a **single PDF**.
+## Available Scripts
 
-### User Flow
+- `npm run dev` - Start development server with Turbopack
+- `npm run build` - Build the application for production
+- `npm run start` - Start the production server
+- `npm run lint` - Run ESLint for code quality
+- `npm run lint:fix` - Fix ESLint issues automatically
+- `npm run type-check` - Run TypeScript type checking
+- `npm run db:generate` - Generate Prisma client
+- `npm run db:push` - Push database schema changes
+- `npm run db:studio` - Open Prisma Studio for database management
+- `npm run clean` - Clean build artifacts
 
-1. **Entry point** – User visits `/apply`
-2. **Form** – They fill out basic personal details and specify their current job description
-3. **Upload** – They attach one supporting document (PDF file type)
-4. **Submit** – After form submission:
-   - Persist everything in the repo (FS, JSON - your choice)
-   - Generate a PDF containing:
-     - User's personal details (nicely formatted header)
-     - Job description paragraph
-     - Content from the uploaded file (or a note that it's stored)
-   - Return a download link or modal for the PDF
+## Project Structure
 
-### Technical Requirements
+```
+pdf-generator/
+├── src/
+│   ├── app/                 # Next.js app router pages
+│   ├── components/          # Reusable UI components
+│   ├── lib/                 # Utility libraries and configurations
+│   ├── services/            # Business logic and API services
+│   ├── types/               # TypeScript type definitions
+│   └── utils/               # Helper functions
+├── prisma/                  # Database schema and migrations
+├── public/                  # Static assets
+├── uploads/                 # File upload storage
+├── generated/               # Generated PDF files
+└── package.json             # Dependencies and scripts
+```
 
-- **Database:** SQLite with Prisma (self-contained, no hosted DB needed)
-- **File Storage:** Local file system (`./uploads` folder)
-- **PDF Generation:** Your choice of library (`pdf-lib`, `@react-pdf/renderer`, etc.)
-- **Styling:** Minimal UI - focus on backend logic and code
+## Key Features
 
-### Deliverables
+### Professional Design
+- Modern, clean interface with professional aesthetics
+- Responsive design that works on all devices
+- Intuitive user experience with clear navigation
 
-1. **Running code** committed to your repo
-2. **`/coding-challenge` folder** with:
-   - Data model explanation (ER diagram, schema file, or bullet list)
-   - Request flow documentation
+### Robust PDF Generation
+- High-quality PDF output with professional formatting
+- Integration of user data and uploaded documents
+- Optimized for various document types and sizes
 
-## What We're Looking For
+### Data Management
+- Type-safe database operations with Prisma
+- Secure file handling and storage
+- Comprehensive error handling and validation
 
-| Area               | What to Demonstrate                                         |
-| ------------------ | ----------------------------------------------------------- |
-| **Data Modeling**  | Clear representation of how data model relate               |
-| **Code Structure** | Separation of concerns, clear naming, testability           |
-| **PDF Generation** | Smart library choice and working implementation             |
-| **System Design**  | Thoughtful architecture decisions and trade-off analysis    |
-| **Edge Cases**     | Basic validation, error handling, graceful failure handling |
-| **Documentation**  | Clear README and design documentation                       |
+### Production Ready
+- Comprehensive TypeScript implementation
+- Proper error boundaries and fallbacks
+- Optimized build process and deployment configuration
 
-## Ground Rules
+## Contributing
 
-- **File Storage:** Use local file system (`./uploads` folder)
-- **Styling:** Keep UI minimal - focus on backend logic
-- **Libraries:** Use any publicly available npm packages
-- **Secrets:** Don't commit API keys - add needed env var constants to `.env.example`
+This application is built with modern development practices:
 
-## Submission Process
+1. **Code Quality**: ESLint and TypeScript for code quality and type safety
+2. **Database**: Prisma for type-safe database operations
+3. **Styling**: Tailwind CSS for consistent, maintainable styling
+4. **Components**: Modular, reusable component architecture
 
-1. Fork this repo to your GitHub account
-2. Complete both parts of the interview
-3. Open a Pull Request **to this repo's `main` branch**
-4. In the PR description, include your name and any additional context
+## License
 
-## Getting Started
+MIT License - see LICENSE file for details.
 
-1. Read through both challenge documents thoroughly
-2. Set up your development environment
-3. Start with whichever part feels most comfortable to you
-4. Document your decisions and reasoning as you go
+## Support
 
-Good luck! We're excited to see your approach and solutions.
+For questions or support, please refer to the system design documentation in `system-design.md` for architectural details.

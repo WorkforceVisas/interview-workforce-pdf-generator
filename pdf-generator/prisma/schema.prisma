@@ -14,9 +14,30 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  firstName String
-  lastName  String
-  email     String   @unique
-  createdAt DateTime @default(now())
+  id          String       @id @default(cuid())
+  firstName   String
+  lastName    String
+  email       String       @unique
+  phone       String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  submissions Submission[]
+
+  @@map("users")
+}
+
+model Submission {
+  id               String    @id @default(cuid())
+  userId           String
+  jobDescription   String
+  status           String    @default("pending") // pending, processing, completed, failed
+  generatedPdfPath String?
+  uploadedFileName String?   // original name of uploaded file
+  uploadedFilePath String?   // path to uploaded file
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("submissions")
 }
